@@ -62,15 +62,20 @@ class MediaController extends Controller
         $file = $request->file('fichier');
         $type = str_starts_with((string) $file->getMimeType(), 'video') ? 'video' : 'photo';
 
-        $uploaded = Cloudinary::upload($file->getRealPath(), [
-            'folder'        => 'toursenimmo',
-            'resource_type' => 'auto',
-        ]);
+        try {
+            $uploaded = Cloudinary::upload($file->getRealPath(), [
+                'folder'        => 'toursenimmo',
+                'resource_type' => 'auto',
+            ]);
+            $chemin = $uploaded->getSecurePath();
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Cloudinary: ' . $e->getMessage()], 500);
+        }
 
         $media = $parent->medias()->create([
             'type'       => $type,
             'libelle'    => $request->input('libelle'),
-            'chemin'     => $uploaded->getSecurePath(),
+            'chemin'     => $chemin,
             'couverture' => $request->boolean('couverture'),
         ]);
 
