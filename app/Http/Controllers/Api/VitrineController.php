@@ -24,6 +24,7 @@ class VitrineController extends Controller
     {
         $immeuble->load([
             'medias',
+            'creator:id,telephone',
             'logements' => fn ($q) => $q->where('statut', 'disponible')->with('medias'),
         ]);
 
