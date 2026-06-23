@@ -9,7 +9,6 @@ use App\Models\Logement;
 use App\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use CloudinaryLabs\CloudinaryLaravel\Facades\Cloudinary;
 
 class MediaController extends Controller
 {
@@ -29,14 +28,6 @@ class MediaController extends Controller
         };
     }
 
-    /**
-     * POST /api/medias
-     *   fichier        : photo / video
-     *   mediable_type  : "immeuble" | "logement" | "contrat"
-     *   mediable_id    : id du parent
-     *   libelle        : (optionnel) "piece_identite" | "signature" | null
-     *   couverture     : 0/1 (optionnel)
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -61,21 +52,12 @@ class MediaController extends Controller
 
         $file = $request->file('fichier');
         $type = str_starts_with((string) $file->getMimeType(), 'video') ? 'video' : 'photo';
-
-        try {
-            $uploaded = Cloudinary::upload($file->getRealPath(), [
-                'folder'        => 'toursenimmo',
-                'resource_type' => 'auto',
-            ]);
-            $chemin = $uploaded->getSecurePath();
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Cloudinary: ' . $e->getMessage()], 500);
-        }
+        $path = $file->store('medias', 'public');
 
         $media = $parent->medias()->create([
             'type'       => $type,
             'libelle'    => $request->input('libelle'),
-            'chemin'     => $chemin,
+            'chemin'     => $path,
             'couverture' => $request->boolean('couverture'),
         ]);
 
@@ -104,15 +86,7 @@ class MediaController extends Controller
             403
         );
 
-        if (str_starts_with($media->chemin, 'http')) {
-            // Fichier Cloudinary : extraire le public_id et supprimer
-            if (preg_match('/\/upload\/(?:v\d+\/)?(.+)$/', parse_url($media->chemin, PHP_URL_PATH), $m)) {
-                $publicId = pathinfo($m[1], PATHINFO_FILENAME);
-                Cloudinary::destroy($publicId, ['resource_type' => $media->type === 'video' ? 'video' : 'image']);
-            }
-        } else {
-            Storage::disk('public')->delete($media->chemin);
-        }
+        Storage::disk('public')->delete($media->chemin);
         $media->delete();
 
         return response()->json(['message' => 'Media supprime.']);
